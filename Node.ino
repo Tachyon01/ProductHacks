@@ -1,0 +1,126 @@
+#include <SoftwareSerial.h>
+#include <ESP8266WiFi.h>
+#include <FirebaseArduino.h>
+#include "HX711.h"
+#include <Servo.h>
+
+
+#define FIREBASE_HOST "drip-9a9cf.firebaseio.com"
+#define FIREBASE_AUTH "EbcpsSga348U7cf1CRJtanXHbSClAiyfgw8arElw" 
+
+#define WIFI_SSID "Tachyon"                                             // input your home or public wifi name 
+#define WIFI_PASSWORD "bepa8139"                                    //password of wifi ssid
+
+const int LOADCELL_DOUT_PIN = D6;
+const int LOADCELL_SCK_PIN = D5;
+IR1 = D0;
+IR2 = D1;
+IR3 = D2;
+Servo servo1;
+HX711 scale;
+int pos = 90; 
+
+void setup(){
+  pinMode(IR1,INPUT);
+  pinMode(IR2,INPUT);
+  pinMode(IR3,INPUT);
+  
+  Serial.begin(9600);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);                                     //try to connect with wifi
+  Serial.print("Connecting to ");
+  Serial.print(WIFI_SSID);
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println();
+  Serial.print("Connected to ");
+  Serial.println(WIFI_SSID);
+  Serial.print("IP Address is : ");
+  Serial.println(WiFi.localIP());                                            //print local IP address
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);                              // connect to firebase
+  Serial.println("Initializing the scale");
+
+  servo1.attach(D3);
+  servo1.write(160)
+  delay(15);
+  //Load cell
+  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+  Serial.println("Before setting up the scale:");
+  Serial.print("read: \t\t");
+  Serial.println(scale.read());      // print a raw reading from the ADC
+  Serial.print("read average: \t\t");
+  Serial.println(scale.read_average(20));   // print the average of 20 readings from the ADC
+  Serial.print("get value: \t\t");
+  Serial.println(scale.get_value(5));   // print the average of 5 readings from the ADC minus the tare weight (not set yet)
+  Serial.print("get units: \t\t");
+  Serial.println(scale.get_units(5), 1);  // print the average of 5 readings from the ADC minus tare weight (not set) divided
+                                          // by the SCALE parameter (not set yet)
+  scale.set_scale(425.f);                      // this value is obtained by calibrating the scale with known weights; see the README for details
+  scale.tare();               // reset the scale to 0
+  Serial.println("After setting up the scale:");
+  Serial.print("read: \t\t");
+  Serial.println(scale.read());                 // print a raw reading from the ADC
+  Serial.print("read average: \t\t");
+  Serial.println(scale.read_average(20));       // print the average of 20 readings from the ADC
+  Serial.print("get value: \t\t");
+  Serial.println(scale.get_value(5));   // print the average of 5 readings from the ADC minus the tare weight, set with tare()
+  Serial.print("get units: \t\t");
+  Serial.println(scale.get_units(5), 1);        // print the average of 5 readings from the ADC minus tare weight, divided
+                                                // by the SCALE parameter set with set_scale
+  Serial.println("Readings:");
+}
+
+int Weight;
+int perc, ir;
+String Switch;
+bool ir1,ir2,ir3;
+
+void loop()
+{
+  Serial.print("one reading:\t");
+  Weight = scale.get_units(10);
+  perc = Weight/5.5;
+  Firebase.setInt("Beds/Bed1/Level",perc);
+  scale.power_down();              // put the ADC in sleep mode
+  delay(5000);
+  scale.power_up();        
+  
+  Switch = Firebase.getInt("Beds/Bed1/Switch");
+  if (Switch == 0)
+  {
+    for (pos = 160; pos >= 125; pos -= 1)
+    { // goes from 180 degrees to 0 degrees
+      Serial.print(pos);
+      servo1.write(pos);              // tell servo to go to position in variable 'pos'
+      delay(200);                       // waits 15ms for the servo to reach the position
+    }
+  }
+  
+  //IR
+  ir1 = digitalRead(IR1);
+  ir2 = digitalRead(IR2);
+  ir3 = digitalRead(IR3);
+  if (ir1==LOW && ir2==LOW && ir3==LOW)
+  {
+    int ir = 3;
+    Firebase.setInt("Beds/Bed1/IR",ir);
+  }
+  else if (ir1==LOW && ir2==LOW && ir3==HIGH)
+  {
+    int ir = 2;
+    Firebase.setInt("Beds/Bed1/IR",ir);
+  }
+  else if (ir1==LOW && ir2==HIGH && ir3==HIGH)
+  {
+    int ir = 1;
+    Firebase.setInt("Beds/Bed1/IR",ir);
+  }
+  else (ir1==HIGH && ir2==HIGH && ir3==HIGH)
+  {
+    int ir = 0;
+    Firebase.setInt("Beds/Bed1/IR",ir);
+  }
+  Firebase.setInt("Beds/Bed1/Level",perc);
+  delay(5000);
+  } 
