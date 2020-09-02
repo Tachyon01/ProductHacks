@@ -5,8 +5,8 @@
 #include <Servo.h>
 
 
-#define FIREBASE_HOST "drip-9a9cf.firebaseio.com"
-#define FIREBASE_AUTH "EbcpsSga348U7cf1CRJtanXHbSClAiyfgw8arElw" 
+#define FIREBASE_HOST "drip-xxxxx.firebaseio.com"
+#define FIREBASE_AUTH "Ebcpxxxxxxxxxxxxxxxxxxxxxxx" 
 
 #define WIFI_SSID "Tachyon"                                             // input your home or public wifi name 
 #define WIFI_PASSWORD "bepa8139"                                    //password of wifi ssid
